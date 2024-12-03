@@ -5,10 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dynamic Emboss Effect</title>
   <style>
-    @font-face {
-      font-family: 'PicNic-Regular';
-      src: url('PicNic-Regular.otf') format('opentype');
-    }
+   @font-face {
+  font-family: 'PicNic-Regular';
+  src: url('./PicNic-Regular.otf') format('opentype'),
+       url('./PicNic-Regular.woff2') format('woff2'),
+       url('./PicNic-Regular.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+}
     
     body {
       margin: 0;
