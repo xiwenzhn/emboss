@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dynamic Emboss Effect</title>
+  <style>
+    @font-face {
+      font-family: 'PicNic-Regular';
+      src: url('PicNic-Regular.otf') format('opentype');
+    }
+    
+    body {
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: #fff;
+      overflow-y: auto;
+      font-family: 'PicNic-Regular', sans-serif;
+    }
+    canvas {
+      display: block;
+      position: relative;
+      background: transparent;
+      cursor: pointer;
+    }
+    .emboss-container {
+      position: absolute;
+      width: 100%;
+      pointer-events: none;
+    }
+
+    .video-container {
+  position: absolute;
+  z-index: 1000;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 1s ease, visibility 1s ease;
+  mix-blend-mode: multiply;
+}
+
+.video-container.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Specific styling for first video */
+#videoContainer1 video {
+  width: 50%;
+  height: 50%;
+  margin-left: 25%;
+  margin-top: 15%;
+}
+
+/* Specific styling for third video */
+#videoContainer3 video {
+  width: 120%;
+  height: 120%;
+
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+
+  <div class="video-container" id="videoContainer1">
+    <video id="idleVideo1" autoplay loop muted playsinline>
+      <source src="video1.mp4" type="video/mp4">
+    </video>
+  </div>
+  <div class="video-container" id="videoContainer2">
+    <video id="idleVideo2" autoplay loop muted playsinline>
+      <source src="video2.mp4" type="video/mp4">
+    </video>
+  </div>
+  <div class="video-container" id="videoContainer3">
+    <video id="idleVideo3" autoplay loop muted playsinline>
+      <source src="video3.mp4" type="video/mp4">
+    </video>
+  </div>
+  <div class="video-container" id="videoContainer4">
+    <video id="idleVideo4" autoplay loop muted playsinline>
+      <source src="video4.mp4" type="video/mp4">
+    </video>
+  </div>
+
+  <div class="emboss-container" id="emboss-overlay"></div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const embossOverlay = document.getElementById('emboss-overlay');
+
+    // Initialize canvas
+    canvas.willReadFrequently = true;
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight * 2;
+
+    // Parameters and state variables
+    const IDLE_TIMEOUT = 8000; // 15 seconds
+    const THRESHOLD = 1;
+    let currentThreshold = 0;
+    let isRewinding = false;
+    let animationTime = 0;
+    let lastMouseMoveTime = 0;
+    const AUTO_ANIMATION_DELAY = 1000;
+    let isAutoAnimating = false;
+    let imageData, data;
+    let loadedCount = 0; // Initialize here
+    let idleTimer = null;
+
+    // Mouse tracking variables
+    let mouseX = 0;
+    let mouseY = 0;
+    let mouseVelocityX = 0;
+    let mouseVelocityY = 0;
+    let lastMouseX = 0;
+    let lastMouseY = 0;
+    let mouseRadius = 300;
+    let mouseInfluence = 0.15;
+
+    // Text content
+    const texts = [
+      { text: "1", x: 50, y: 50, font: '36px PicNic-Regular', color: '#333' },
+      { text: "2", x: 200, y: 50, font: '36px PicNic-Regular', color: '#555' },
+      { text: "3", x: 400, y: 50, font: '36px PicNic-Regular', color: '#777' },
+      { text: "4", x: 600, y: 50, font: '36px PicNic-Regular', color: '#999' }
+    ];
+
+    // Clickable regions
+    const clickableRegions = [
+      { x: 0, y: 0, width: canvas.width / 2, height: canvas.height / 3, url: "https://example.com/page1" },
+      { x: canvas.width / 2, y: 0, width: canvas.width / 2, height: canvas.height / 3, url: "https://example.com/page2" },
+      { x: 0, y: canvas.height / 3, width: canvas.width / 2, height: canvas.height / 3, url: "https://example.com/page3" },
+      { x: canvas.width / 2, y: canvas.height / 3, width: canvas.width / 2, height: canvas.height / 3, url: "https://drive.google.com/file/d/14VtFwpeiZkx6w0hQSJ_GK_nUOlYYYMeJ/view?usp=sharing" }
+    ];
+    // Load images
+    const img1 = new Image();
+    const img2 = new Image();
+    const img3 = new Image();
+    const img4 = new Image();
+    const img5 = new Image();
+    const img6 = new Image();
+    const images = [img1, img2, img3, img4, img5, img6];
+
+    img1.crossOrigin = img2.crossOrigin = img3.crossOrigin = img4.crossOrigin = img5.crossOrigin = img6.crossOrigin = 'Anonymous';
+    img1.src = 'https://i.postimg.cc/0NxHntqj/Screen-Shot-2024-11-27-at-1-02-41-AM.png';
+    img2.src = 'https://i.postimg.cc/jSFx46Pp/Screen-Shot-2024-11-19-at-11-46-21-AM.png';
+    img3.src = 'https://i.postimg.cc/6625TPnY/thumb-109-1120-0-0-0-auto.jpg';
+    img4.src = 'https://i.postimg.cc/T335h990/your-image.jpg';
+    img5.src = 'https://i.postimg.cc/ZqNhF6mt/prime-spiral-10000.png';
+    img6.src = 'https://i.postimg.cc/6QsrW3vC/Screen-Shot-2024-11-27-at-1-07-23-AM.png';
+
+    function drawImageInSection(context, image, x, y, sectionWidth, sectionHeight, overlay = false) {
+      if (!image.complete) return;
+
+      const aspectRatio = image.width / image.height;
+      let imgWidth = sectionWidth;
+      let imgHeight = imgWidth / aspectRatio;
+
+      if (imgHeight > sectionHeight) {
+        imgHeight = sectionHeight;
+        imgWidth = imgHeight * aspectRatio;
+      }
+
+      const offsetX = x + (sectionWidth - imgWidth) / 2;
+      const offsetY = y + (sectionHeight - imgHeight) / 2;
+
+      if (!overlay) {
+        context.drawImage(image, offsetX, offsetY, imgWidth, imgHeight);
+      } else {
+        context.globalAlpha = 0.5;
+        context.drawImage(image, offsetX, offsetY, imgWidth, imgHeight);
+        context.globalAlpha = 1;
+      }
+    }
+
+    function drawTexts(context, textArray) {
+      textArray.forEach(({ text, x, y, font, color }) => {
+        context.font = font;
+        context.fillStyle = color;
+        context.textBaseline = 'top';
+        context.fillText(text, x, y);
+      });
+    }
+
+    function setup() {
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      const sectionWidth = canvas.width / 2;
+      const sectionHeight = canvas.height / 3;
+
+      drawImageInSection(ctx, img1, 0, 0, sectionWidth, sectionHeight);
+      drawImageInSection(ctx, img2, 0, 0, sectionWidth, sectionHeight, true);
+      drawImageInSection(ctx, img3, sectionWidth, 0, sectionWidth, sectionHeight);
+      drawImageInSection(ctx, img4, sectionWidth, 0, sectionWidth, sectionHeight, true);
+      drawImageInSection(ctx, img5, 0, sectionHeight, sectionWidth, sectionHeight);
+      drawImageInSection(ctx, img6, sectionWidth, sectionHeight, sectionWidth, sectionHeight);
+
+      drawTexts(ctx, texts);
+
+      imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      data = imageData.data;
+    }
+
+    function updateMouseVelocity(event) {
+      mouseX = event.clientX;
+      mouseY = event.clientY;
+      
+      mouseVelocityX = (mouseX - lastMouseX) * mouseInfluence;
+      mouseVelocityY = (mouseY - lastMouseY) * mouseInfluence;
+      
+      lastMouseX = mouseX;
+      lastMouseY = mouseY;
+    }
+
+    // Update the positioning function
+ function updateVideoPositions() {
+      const sectionWidth = canvas.width / 2;
+      const sectionHeight = canvas.height / 3;
+
+      const positions = [
+        {
+          x: 0,          // For img1 (top left)
+          y: 0,
+          width: sectionWidth,
+          height: sectionHeight
+        },
+        {
+          x: sectionWidth,  // For img3 (top right)
+          y: 0,
+          width: sectionWidth,
+          height: sectionHeight
+        },
+        {
+          x: 0,          // For img5 (middle left)
+          y: sectionHeight,
+          width: sectionWidth,
+          height: sectionHeight
+        },
+        {
+          x: sectionWidth,  // For img6 (bottom right) - NEW
+          y: sectionHeight,
+          width: sectionWidth,
+          height: sectionHeight
+        }
+      ];
+
+      positions.forEach((pos, idx) => {
+        const container = document.getElementById(`videoContainer${idx + 1}`);
+        if (container) {
+          Object.assign(container.style, {
+            left: `${pos.x}px`,
+            top: `${pos.y}px`,
+            width: `${pos.width}px`,
+            height: `${pos.height}px`,
+            transform: 'none'
+          });
+        }
+      });
+    }
+
+    function handleIdle() {
+      updateVideoPositions();
+      // Show and play all three videos
+      for(let i = 1; i <= 4; i++) {
+        const container = document.getElementById(`videoContainer${i}`);
+        const video = document.getElementById(`idleVideo${i}`);
+        if (container && video) {
+          container.classList.add('active');
+          video.currentTime = 0;
+          video.play().catch(error => {
+            console.log(`Video ${i} autoplay failed:`, error);
+          });
+        }
+      }
+    }
+
+    function resetIdleTimer() {
+      if (idleTimer) {
+        clearTimeout(idleTimer);
+      }
+      
+      // Hide all three videos
+      for(let i = 1; i <= 4; i++) {
+        const container = document.getElementById(`videoContainer${i}`);
+        if (container) {
+          container.classList.remove('active');
+          const video = document.getElementById(`idleVideo${i}`);
+          if (video) {
+            video.pause();
+          }
+        }
+      }
+      
+      idleTimer = setTimeout(handleIdle, IDLE_TIMEOUT);
+    }
+
+    function handleImageClick(event) {
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = event.clientX - rect.left;
+      const mouseY = event.clientY - rect.top;
+
+      for (let region of clickableRegions) {
+        if (
+          mouseX >= region.x && mouseX <= region.x + region.width &&
+          mouseY >= region.y && mouseY <= region.y + region.height
+        ) {
+          window.location.href = region.url;
+          break;
+        }
+      }
+    }
+
+    function applyEmbossEffect(event, autoAnimate = false) {
+      if (event && event.type === 'mousemove') {
+        lastMouseMoveTime = Date.now();
+        isAutoAnimating = false;
+        updateMouseVelocity(event);
+      }
+
+      const mouseSpeed = Math.sqrt(mouseVelocityX * mouseVelocityX + mouseVelocityY * mouseVelocityY);
+      const velocityFactor = Math.min(mouseSpeed / 10, 1);
+
+      const lightDirection = autoAnimate ? {
+        x: Math.sin(animationTime * 0.5) * 2,
+        y: Math.cos(animationTime * 0.5) * 2
+      } : {
+        x: (mouseVelocityX * 2) + (mouseX / canvas.width * 2 - 1),
+        y: (mouseVelocityY * 2) + (mouseY / canvas.height * 2 - 1)
+      };
+
+      if (!isRewinding) {
+        currentThreshold += 0.01 * (1 + velocityFactor);
+      } else {
+        currentThreshold -= 0.01 * (1 + velocityFactor);
+      }
+
+      if (currentThreshold >= THRESHOLD) {
+        isRewinding = true;
+      }
+      if (currentThreshold <= 0) {
+        isRewinding = false;
+      }
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.putImageData(imageData, 0, 0);
+
+      for (let y = 1; y < canvas.height - 1; y++) {
+        for (let x = 1; x < canvas.width - 1; x++) {
+          const dx = x - mouseX;
+          const dy = y - mouseY;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          let distanceInfluence = 1;
+
+          if (distance < mouseRadius) {
+            distanceInfluence = 1 + (1 - distance / mouseRadius) * velocityFactor * 2;
+          }
+
+          const idx = (y * canvas.width + x) * 4;
+          const currentPixel = { r: data[idx], g: data[idx + 1], b: data[idx + 2] };
+
+          const rightIdx = (y * canvas.width + (x + 1)) * 4;
+          const bottomIdx = ((y + 1) * canvas.width + x) * 4;
+
+          const rightBrightness = (data[rightIdx] + data[rightIdx + 1] + data[rightIdx + 2]) / 3;
+          const bottomBrightness = (data[bottomIdx] + data[bottomIdx + 1] + data[bottomIdx + 2]) / 3;
+          const currentBrightness = (currentPixel.r + currentPixel.g + currentPixel.b) / 3;
+
+          const brightnessDiffRight = (currentBrightness - rightBrightness) * distanceInfluence;
+          const brightnessDiffBottom = (currentBrightness - bottomBrightness) * distanceInfluence;
+
+          const normal = { x: brightnessDiffRight, y: brightnessDiffBottom };
+          const lightIntensity = Math.max(0, (lightDirection.x * normal.x + lightDirection.y * normal.y) / 
+            Math.sqrt(normal.x * normal.x + normal.y * normal.y));
+
+          const embossedValue = Math.min(255, currentBrightness + lightIntensity * (40 * currentThreshold * distanceInfluence));
+
+          data[idx] = embossedValue;
+          data[idx + 1] = embossedValue;
+          data[idx + 2] = embossedValue;
+        }
+      }
+
+      ctx.putImageData(imageData, 0, 0);
+    }
+
+    function animate() {
+      if (Date.now() - lastMouseMoveTime > AUTO_ANIMATION_DELAY) {
+        isAutoAnimating = true;
+        animationTime += 0.05;
+        applyEmbossEffect(null, true);
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+
+    function init() {
+      setup();
+      animate();
+      resetIdleTimer();
+      updateVideoPositions();
+    }
+
+    // Event listeners
+    window.addEventListener('load', () => {
+      // Initialize video positions
+      updateVideoPositions();
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      resetIdleTimer();
+      applyEmbossEffect(e);
+    });
+    
+    document.addEventListener('keydown', resetIdleTimer);
+    document.addEventListener('click', (e) => {
+      resetIdleTimer();
+      handleImageClick(e);
+    });
+    document.addEventListener('scroll', resetIdleTimer);
+
+    // Video metadata listeners
+    for(let i = 1; i <= 4; i++) {
+      const video = document.getElementById(`idleVideo${i}`);
+      if (video) {
+        video.addEventListener('loadedmetadata', updateVideoPositions);
+      }
+    }
+    
+    window.addEventListener('resize', () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight * 2;
+      setup();
+      updateVideoPositions();
+    });
+
+    // Single image loading initialization
+    images.forEach(img => {
+      img.onload = () => {
+        loadedCount++;
+        if (loadedCount === images.length) {
+          init();
+        }
+      };
+      img.onerror = (err) => {
+        console.error('Error loading image:', err);
+      };
+    });
+  </script>
+</body>
+</html>
