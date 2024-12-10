@@ -14,21 +14,19 @@
   font-style: normal;
 }
     
-    body {
-      margin: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      background: #fff;
-      overflow-y: auto;
-      font-family: 'PicNic-Regular', sans-serif;
-    }
-    canvas {
-      display: block;
-      position: relative;
-      background: transparent;
-      cursor: pointer;
-    }
+canvas {
+  display: block;
+  position: absolute;
+  width: 100vw;
+  height: 600vh; /* 6 full viewport heights */
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  height: 600vh; /* Match canvas height */
+  overflow-x: hidden;
+}
     video {
   width: 100%;
   height: 100%;
@@ -143,8 +141,8 @@
 
     // Initialize canvas
     canvas.willReadFrequently = true;
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight * 2;
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight * 6; // 6 full viewport heights
 
     // Parameters and state variables
     const IDLE_TIMEOUT = 8000; // 15 seconds
@@ -179,11 +177,11 @@
 
     // Clickable regions
     const clickableRegions = [
-      { x: 0, y: 0, width: canvas.width / 2, height: canvas.height / 3, url: "https://example.com/page1" },
-      { x: canvas.width / 2, y: 0, width: canvas.width / 2, height: canvas.height / 3, url: "https://example.com/page2" },
-      { x: 0, y: canvas.height / 3, width: canvas.width / 2, height: canvas.height / 3, url: "https://example.com/page3" },
-      { x: canvas.width / 2, y: canvas.height / 3, width: canvas.width / 2, height: canvas.height / 3, url: "https://drive.google.com/file/d/14VtFwpeiZkx6w0hQSJ_GK_nUOlYYYMeJ/view?usp=sharing" }
-    ];
+  { x: 0, y: 0, width: canvas.width, height: canvas.height, url: "https://example.com/page1" },
+  { x: 0, y: 0, width: canvas.width, height: canvas.height, url: "https://example.com/page2" },
+  { x: 0, y: 0, width: canvas.width, height: canvas.height, url: "https://example.com/page3" },
+  { x: 0, y: 0, width: canvas.width, height: canvas.height, url: "https://drive.google.com/file/d/14VtFwpeiZkx6w0hQSJ_GK_nUOlYYYMeJ/view?usp=sharing" }
+];
     // Load images
     const img1 = new Image();
     const img2 = new Image();
@@ -235,25 +233,22 @@
     }
 
     function setup() {
-      ctx.fillStyle = '#fff';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      const sectionWidth = canvas.width / 2;
-      const sectionHeight = canvas.height / 3;
+  const viewportHeight = window.innerHeight;
+  
+  // Draw each image at full viewport height
+  drawImageInSection(ctx, img1, 0, viewportHeight * 0, canvas.width, viewportHeight);
+  drawImageInSection(ctx, img2, 0, viewportHeight * 1, canvas.width, viewportHeight);
+  drawImageInSection(ctx, img3, 0, viewportHeight * 2, canvas.width, viewportHeight);
+  drawImageInSection(ctx, img4, 0, viewportHeight * 3, canvas.width, viewportHeight);
+  drawImageInSection(ctx, img5, 0, viewportHeight * 4, canvas.width, viewportHeight);
+  drawImageInSection(ctx, img6, 0, viewportHeight * 5, canvas.width, viewportHeight);
 
-      drawImageInSection(ctx, img1, 0, 0, sectionWidth, sectionHeight);
-      drawImageInSection(ctx, img2, 0, 0, sectionWidth, sectionHeight, true);
-      drawImageInSection(ctx, img3, sectionWidth, 0, sectionWidth, sectionHeight);
-      drawImageInSection(ctx, img4, sectionWidth, 0, sectionWidth, sectionHeight, true);
-      drawImageInSection(ctx, img5, 0, sectionHeight, sectionWidth, sectionHeight);
-      drawImageInSection(ctx, img6, sectionWidth, sectionHeight, sectionWidth, sectionHeight);
-
-      drawTexts(ctx, texts);
-
-      imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      data = imageData.data;
-    }
-
+  imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  data = imageData.data;
+}
     function updateMouseVelocity(event) {
       mouseX = event.clientX;
       mouseY = event.clientY;
@@ -267,49 +262,48 @@
 
     // Update the positioning function
  function updateVideoPositions() {
-      const sectionWidth = canvas.width / 2;
-      const sectionHeight = canvas.height / 3;
+  const sectionHeight = window.innerHeight;
 
-      const positions = [
-        {
-          x: 0,          // For img1 (top left)
-          y: 0,
-          width: sectionWidth,
-          height: sectionHeight
-        },
-        {
-          x: sectionWidth,  // For img3 (top right)
-          y: 0,
-          width: sectionWidth,
-          height: sectionHeight
-        },
-        {
-          x: 0,          // For img5 (middle left)
-          y: sectionHeight,
-          width: sectionWidth,
-          height: sectionHeight
-        },
-        {
-          x: sectionWidth,  // For img6 (bottom right) - NEW
-          y: sectionHeight,
-          width: sectionWidth,
-          height: sectionHeight
-        }
-      ];
+  const positions = [
+    {
+      x: 0,
+      y: 0,
+      width: canvas.width,
+      height: sectionHeight
+    },
+    {
+      x: 0,
+      y: sectionHeight,
+      width: canvas.width,
+      height: sectionHeight
+    },
+    {
+      x: 0,
+      y: sectionHeight * 2,
+      width: canvas.width,
+      height: sectionHeight
+    },
+    {
+      x: 0,
+      y: sectionHeight * 3,
+      width: canvas.width,
+      height: sectionHeight
+    }
+  ];
 
-      positions.forEach((pos, idx) => {
-        const container = document.getElementById(`videoContainer${idx + 1}`);
-        if (container) {
-          Object.assign(container.style, {
-            left: `${pos.x}px`,
-            top: `${pos.y}px`,
-            width: `${pos.width}px`,
-            height: `${pos.height}px`,
-            transform: 'none'
-          });
-        }
+  positions.forEach((pos, idx) => {
+    const container = document.getElementById(`videoContainer${idx + 1}`);
+    if (container) {
+      Object.assign(container.style, {
+        left: `${pos.x}px`,
+        top: `${pos.y}px`,
+        width: `${pos.width}px`,
+        height: `${pos.height}px`,
+        transform: 'none'
       });
     }
+  });
+}
 
     // Update handle idle function for iframes
 function handleIdle() {
@@ -474,11 +468,11 @@ for(let i = 1; i <= 4; i++) {
   }
 }
     window.addEventListener('resize', () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight * 2;
-      setup();
-      updateVideoPositions();
-    });
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight * 6;
+  setup();
+  updateVideoPositions();
+});
 
     // Single image loading initialization
     images.forEach(img => {
